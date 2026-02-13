@@ -11,9 +11,21 @@ interface ChatMessagesProps {
   messages: Message[];
   isLoading?: boolean;
   t: Translations;
+  onApproveToolCall?: (messageId: string, toolCallId: string) => void;
+  onDenyToolCall?: (messageId: string, toolCallId: string) => void;
+  onApproveAllToolCalls?: (messageId: string) => void;
+  onDenyAllToolCalls?: (messageId: string) => void;
 }
 
-export function ChatMessages({ messages, isLoading = false, t }: ChatMessagesProps) {
+export function ChatMessages({
+  messages,
+  isLoading = false,
+  t,
+  onApproveToolCall,
+  onDenyToolCall,
+  onApproveAllToolCalls,
+  onDenyAllToolCalls,
+}: ChatMessagesProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // 새 메시지가 추가되면 자동으로 맨 아래로 스크롤
@@ -41,15 +53,25 @@ export function ChatMessages({ messages, isLoading = false, t }: ChatMessagesPro
   }
 
   return (
-    <ScrollArea className="min-h-0 flex-1">
-      <div className="flex flex-col gap-4 py-4">
-        {messages.map((message) => (
-          <MessageBubble key={message.id} message={message} />
-        ))}
-        {isLoading && <TypingIndicator />}
-        <div ref={bottomRef} />
-      </div>
-    </ScrollArea>
+    <div className="relative min-h-0 flex-1 overflow-hidden">
+      <ScrollArea className="h-full">
+        <div className="flex flex-col gap-4 py-4">
+          {messages.map((message) => (
+            <MessageBubble
+              key={message.id}
+              message={message}
+              t={t}
+              onApproveToolCall={onApproveToolCall}
+              onDenyToolCall={onDenyToolCall}
+              onApproveAllToolCalls={onApproveAllToolCalls}
+              onDenyAllToolCalls={onDenyAllToolCalls}
+            />
+          ))}
+          {isLoading && <TypingIndicator />}
+          <div ref={bottomRef} />
+        </div>
+      </ScrollArea>
+    </div>
   );
 }
 

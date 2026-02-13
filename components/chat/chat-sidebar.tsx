@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
@@ -8,10 +8,15 @@ import { MessageSquarePlus, Pencil, Trash2, X, Check } from "lucide-react";
 import type { Conversation } from "@/types/chat";
 import type { Translations } from "@/lib/i18n";
 
+const MIN_WIDTH = 200;
+const MAX_WIDTH = 480;
+
 interface ChatSidebarProps {
   open: boolean;
   conversations: Conversation[];
   activeId: string | null;
+  width: number;
+  onWidthChange: (width: number) => void;
   onClose: () => void;
   onNewChat: () => void;
   onSelect: (id: string) => void;
@@ -24,6 +29,8 @@ export function ChatSidebar({
   open,
   conversations,
   activeId,
+  width,
+  onWidthChange,
   onClose,
   onNewChat,
   onSelect,
@@ -31,6 +38,39 @@ export function ChatSidebar({
   onRename,
   t,
 }: ChatSidebarProps) {
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const newWidth = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, e.clientX));
+      onWidthChange(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    // 드래그 중 텍스트 선택 방지
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+  }, [isDragging, onWidthChange]);
+
   return (
     <>
       {/* 배경 오버레이 (모바일) */}
@@ -41,16 +81,24 @@ export function ChatSidebar({
         />
       )}
 
-      {/* 사이드바 */}
-      <aside
+      {/* 사이드바 + 리사이즈 핸들 */}
+      <div
         className={cn(
-          "bg-background border-border flex shrink-0 flex-col border-r overflow-hidden transition-all duration-200",
-          "fixed inset-y-0 left-0 z-50 w-72 md:relative md:z-auto",
+          "relative flex shrink-0",
+          "fixed inset-y-0 left-0 z-50 md:relative md:z-auto",
+          !isDragging && "transition-all duration-200",
           open
-            ? "translate-x-0 md:w-72"
-            : "-translate-x-full md:translate-x-0 md:w-0 md:border-r-0 md:overflow-hidden"
+            ? "translate-x-0"
+            : "-translate-x-full md:translate-x-0"
         )}
+        style={open ? { width: `${width}px` } : { width: 0 }}
       >
+        <aside
+          className={cn(
+            "bg-background border-border flex min-w-0 flex-1 flex-col border-r overflow-hidden",
+            !open && "md:border-r-0"
+          )}
+        >
         {/* 상단: 타이틀 + 닫기 */}
         <div className="border-border flex h-14 shrink-0 items-center justify-between border-b px-3">
           <h2 className="text-sm font-semibold">{t.sidebarTitle}</h2>
@@ -78,7 +126,7 @@ export function ChatSidebar({
 
         {/* 대화 목록 */}
         <ScrollArea className="flex-1">
-          <div className="flex flex-col gap-1 px-3 pb-3">
+          <div className="flex flex-col gap-1 overflow-hidden px-3 pb-3">
             {conversations.length === 0 ? (
               <p className="text-muted-foreground py-4 text-center text-xs">
                 {t.noHistory}
@@ -99,6 +147,21 @@ export function ChatSidebar({
           </div>
         </ScrollArea>
       </aside>
+
+        {/* 리사이즈 핸들 (데스크톱 전용) */}
+        {open && (
+          <div
+            onMouseDown={handleMouseDown}
+            className={cn(
+              "hidden md:flex absolute right-0 top-0 bottom-0 z-10 w-1 cursor-col-resize items-center justify-center",
+              "hover:bg-primary/20 active:bg-primary/30 transition-colors",
+              isDragging && "bg-primary/30"
+            )}
+          >
+            <div className="bg-border h-8 w-0.5 rounded-full" />
+          </div>
+        )}
+      </div>
     </>
   );
 }
@@ -179,9 +242,9 @@ function ConversationItem({
       )}
       onClick={onSelect}
     >
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 overflow-hidden">
         <span className="block truncate">{conversation.title}</span>
-        <span className="text-muted-foreground block text-xs">
+        <span className="text-muted-foreground block truncate text-xs">
           {formatDate(conversation.createdAt)}
         </span>
       </div>

@@ -4,6 +4,7 @@ import { Bot, Globe, PanelLeft, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useRef, useEffect } from "react";
 import { LANGUAGE_LABELS, type Language, type Translations } from "@/lib/i18n";
+import { McpStatusIndicator } from "./mcp-status-indicator";
 
 interface ChatHeaderProps {
   onReset: () => void;
@@ -90,6 +91,8 @@ export function ChatHeader({
             </div>
           )}
         </div>
+
+        <McpStatusIndicator />
 
         <Button
           variant="ghost"

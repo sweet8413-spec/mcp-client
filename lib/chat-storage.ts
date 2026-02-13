@@ -1,54 +1,107 @@
-import type { Conversation, Message } from "@/types/chat";
+import { supabase } from "@/lib/supabase";
+import type { Conversation, Message, ToolCallInfo, InlineImage } from "@/types/chat";
 
-const CONVERSATIONS_KEY = "chat-conversations";
 const ACTIVE_ID_KEY = "chat-active-id";
 
-// --- 대화 목록 관리 ---
+// --- 대화 목록 관리 (Supabase) ---
 
 /** 모든 대화 목록 불러오기 (최신순) */
-export function loadConversations(): Conversation[] {
+export async function loadConversations(): Promise<Conversation[]> {
   try {
-    const raw = localStorage.getItem(CONVERSATIONS_KEY);
-    if (!raw) return [];
-    const list = JSON.parse(raw) as Conversation[];
-    return list.sort(
-      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-    );
-  } catch {
-    console.warn("대화 목록 불러오기 실패");
+    const { data, error } = await supabase
+      .from("conversations")
+      .select("*, messages(*)")
+      .order("updated_at", { ascending: false });
+
+    if (error) throw error;
+    if (!data) return [];
+
+    return data.map((conv) => ({
+      id: conv.id as string,
+      title: conv.title as string,
+      messages: ((conv.messages as Record<string, unknown>[]) || [])
+        .sort(
+          (a, b) =>
+            new Date(a.created_at as string).getTime() -
+            new Date(b.created_at as string).getTime()
+        )
+        .map(
+          (m): Message => ({
+            id: m.id as string,
+            role: m.role as "user" | "assistant",
+            content: m.content as string,
+            createdAt: m.created_at as string,
+            ...(m.tool_calls
+              ? { toolCalls: m.tool_calls as ToolCallInfo[] }
+              : {}),
+            ...(m.images ? { images: m.images as InlineImage[] } : {}),
+          })
+        ),
+      createdAt: conv.created_at as string,
+      updatedAt: conv.updated_at as string,
+    }));
+  } catch (err) {
+    console.warn("대화 목록 불러오기 실패:", err);
     return [];
   }
 }
 
 /** 대화 저장 (새로 추가하거나 기존 업데이트) */
-export function saveConversation(conversation: Conversation): void {
+export async function saveConversation(
+  conversation: Conversation
+): Promise<void> {
   try {
-    const list = loadConversations();
-    const idx = list.findIndex((c) => c.id === conversation.id);
-    if (idx >= 0) {
-      list[idx] = conversation;
+    const { error: convError } = await supabase.from("conversations").upsert({
+      id: conversation.id,
+      title: conversation.title,
+      created_at: conversation.createdAt,
+      updated_at: conversation.updatedAt,
+    });
+    if (convError) throw convError;
+
+    if (conversation.messages.length > 0) {
+      const { error: msgError } = await supabase.from("messages").upsert(
+        conversation.messages.map((m) => ({
+          id: m.id,
+          conversation_id: conversation.id,
+          role: m.role,
+          content: m.content,
+          created_at:
+            typeof m.createdAt === "string"
+              ? m.createdAt
+              : m.createdAt.toISOString(),
+          tool_calls: m.toolCalls ?? null,
+          images: m.images ?? null,
+        }))
+      );
+      if (msgError) throw msgError;
     } else {
-      list.unshift(conversation);
+      // 메시지 배열이 비어있으면 해당 대화의 메시지 전체 삭제
+      await supabase
+        .from("messages")
+        .delete()
+        .eq("conversation_id", conversation.id);
     }
-    localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(list));
-  } catch {
-    console.warn("대화 저장 실패");
+  } catch (err) {
+    console.warn("대화 저장 실패:", err);
   }
 }
 
-/** 대화 삭제 */
-export function deleteConversation(id: string): void {
+/** 대화 삭제 (CASCADE로 메시지도 자동 삭제) */
+export async function deleteConversation(id: string): Promise<void> {
   try {
-    const list = loadConversations().filter((c) => c.id !== id);
-    localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(list));
-  } catch {
-    console.warn("대화 삭제 실패");
+    const { error } = await supabase
+      .from("conversations")
+      .delete()
+      .eq("id", id);
+    if (error) throw error;
+  } catch (err) {
+    console.warn("대화 삭제 실패:", err);
   }
 }
 
-// --- 활성 대화 ID ---
+// --- 활성 대화 ID (브라우저 localStorage 유지) ---
 
-/** 현재 활성 대화 ID 불러오기 */
 export function loadActiveId(): string | null {
   try {
     return localStorage.getItem(ACTIVE_ID_KEY);
@@ -57,7 +110,6 @@ export function loadActiveId(): string | null {
   }
 }
 
-/** 현재 활성 대화 ID 저장 */
 export function saveActiveId(id: string): void {
   try {
     localStorage.setItem(ACTIVE_ID_KEY, id);
@@ -68,7 +120,7 @@ export function saveActiveId(id: string): void {
 
 // --- 헬퍼 ---
 
-/** 새 대화 생성 */
+/** 새 대화 객체 생성 */
 export function createConversation(): Conversation {
   const now = new Date().toISOString();
   return {
@@ -86,28 +138,4 @@ export function generateTitle(messages: Message[]): string {
   if (!first) return "새 대화";
   const text = first.content.trim();
   return text.length > 30 ? text.slice(0, 30) + "..." : text;
-}
-
-// --- 마이그레이션 (기존 단일 대화 → 새 구조) ---
-
-export function migrateOldStorage(): void {
-  try {
-    const old = localStorage.getItem("chat-messages");
-    if (!old) return;
-
-    const messages = JSON.parse(old) as Message[];
-    if (messages.length === 0) {
-      localStorage.removeItem("chat-messages");
-      return;
-    }
-
-    const conv = createConversation();
-    conv.messages = messages;
-    conv.title = generateTitle(messages);
-    saveConversation(conv);
-    saveActiveId(conv.id);
-    localStorage.removeItem("chat-messages");
-  } catch {
-    console.warn("마이그레이션 실패");
-  }
 }

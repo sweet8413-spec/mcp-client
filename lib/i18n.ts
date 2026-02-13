@@ -25,6 +25,19 @@ export interface Translations {
   newChatTitle: string;
   // 언어 설정
   language: string;
+  // 도구 호출 (MCP)
+  toolCallRequest: string;
+  toolApprove: string;
+  toolApproveAll: string;
+  toolDeny: string;
+  toolDenyAll: string;
+  toolRunning: string;
+  toolCompleted: string;
+  toolDenied: string;
+  toolError: string;
+  toolArgs: string;
+  toolResult: string;
+  toolServer: string;
 }
 
 const ko: Translations = {
@@ -38,13 +51,25 @@ const ko: Translations = {
   reset: "초기화",
   startChat: "대화를 시작해보세요",
   startChatDesc: "아래 입력창에 메시지를 입력하면 대화가 시작됩니다",
-  inputPlaceholder: "메시지를 입력하세요... (Shift+Enter로 줄바꿈)",
+  inputPlaceholder: "궁금한 내용을 질문해주세요.",
   inputHint: "Enter로 전송 · Shift+Enter로 줄바꿈",
   send: "전송",
   copy: "복사",
   copyCode: "코드 복사",
   newChatTitle: "새 대화",
   language: "언어",
+  toolCallRequest: "도구 호출 요청",
+  toolApprove: "승인",
+  toolApproveAll: "전체 승인",
+  toolDeny: "거부",
+  toolDenyAll: "전체 거부",
+  toolRunning: "실행 중...",
+  toolCompleted: "완료",
+  toolDenied: "거부됨",
+  toolError: "오류",
+  toolArgs: "입력값",
+  toolResult: "실행 결과",
+  toolServer: "서버",
 };
 
 const zh: Translations = {
@@ -65,6 +90,18 @@ const zh: Translations = {
   copyCode: "复制代码",
   newChatTitle: "新对话",
   language: "语言",
+  toolCallRequest: "工具调用请求",
+  toolApprove: "批准",
+  toolApproveAll: "全部批准",
+  toolDeny: "拒绝",
+  toolDenyAll: "全部拒绝",
+  toolRunning: "执行中...",
+  toolCompleted: "完成",
+  toolDenied: "已拒绝",
+  toolError: "错误",
+  toolArgs: "输入值",
+  toolResult: "执行结果",
+  toolServer: "服务器",
 };
 
 const ja: Translations = {
@@ -85,6 +122,18 @@ const ja: Translations = {
   copyCode: "コードをコピー",
   newChatTitle: "新しい会話",
   language: "言語",
+  toolCallRequest: "ツール呼び出し要求",
+  toolApprove: "承認",
+  toolApproveAll: "全て承認",
+  toolDeny: "拒否",
+  toolDenyAll: "全て拒否",
+  toolRunning: "実行中...",
+  toolCompleted: "完了",
+  toolDenied: "拒否済み",
+  toolError: "エラー",
+  toolArgs: "入力値",
+  toolResult: "実行結果",
+  toolServer: "サーバー",
 };
 
 const translations: Record<Language, Translations> = { ko, zh, ja };

@@ -4,16 +4,33 @@ import { useState } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { MarkdownContent } from "@/components/chat/markdown-content";
+import { ToolCallCard } from "@/components/chat/tool-call-card";
 import { cn } from "@/lib/utils";
 import { Bot, Check, Copy, User } from "lucide-react";
 import type { Message } from "@/types/chat";
+import type { Translations } from "@/lib/i18n";
 
 interface MessageBubbleProps {
   message: Message;
+  t: Translations;
+  onApproveToolCall?: (messageId: string, toolCallId: string) => void;
+  onDenyToolCall?: (messageId: string, toolCallId: string) => void;
+  onApproveAllToolCalls?: (messageId: string) => void;
+  onDenyAllToolCalls?: (messageId: string) => void;
 }
 
-export function MessageBubble({ message }: MessageBubbleProps) {
+export function MessageBubble({
+  message,
+  t,
+  onApproveToolCall,
+  onDenyToolCall,
+  onApproveAllToolCalls,
+  onDenyAllToolCalls,
+}: MessageBubbleProps) {
   const isUser = message.role === "user";
+  const hasToolCalls =
+    !isUser && message.toolCalls && message.toolCalls.length > 0;
+  const hasContent = !!message.content;
 
   return (
     <div
@@ -42,20 +59,61 @@ export function MessageBubble({ message }: MessageBubbleProps) {
           isUser ? "items-end" : "items-start"
         )}
       >
-        <div
-          className={cn(
-            "rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
-            isUser
-              ? "bg-primary text-primary-foreground rounded-tr-sm"
-              : "bg-muted text-foreground rounded-tl-sm"
-          )}
-        >
-          {isUser ? (
-            <p className="whitespace-pre-wrap break-words">{message.content}</p>
-          ) : (
-            <MarkdownContent content={message.content} />
-          )}
-        </div>
+        {/* 텍스트 버블 (내용이 있을 때만) */}
+        {hasContent && (
+          <div
+            className={cn(
+              "rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
+              isUser
+                ? "bg-primary text-primary-foreground rounded-tr-sm"
+                : "bg-muted text-foreground rounded-tl-sm"
+            )}
+          >
+            {isUser ? (
+              <p className="whitespace-pre-wrap break-words">
+                {message.content}
+              </p>
+            ) : (
+              <MarkdownContent content={message.content} />
+            )}
+          </div>
+        )}
+
+        {/* 이미지 표시 (MCP 도구에서 반환된 이미지) */}
+        {message.images && message.images.length > 0 && (
+          <div className="flex flex-col gap-2">
+            {message.images.map((img, idx) => (
+              <div
+                key={idx}
+                className="overflow-hidden rounded-xl border"
+                style={{ maxWidth: "min(100%, 400px)" }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`data:${img.mimeType};base64,${img.data}`}
+                  alt={`생성된 이미지 ${idx + 1}`}
+                  className="block h-auto w-full object-contain"
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* 도구 호출 카드 (AI 메시지에 toolCalls가 있을 때) */}
+        {hasToolCalls && (
+          <ToolCallCard
+            toolCalls={message.toolCalls!}
+            onApprove={(toolCallId) =>
+              onApproveToolCall?.(message.id, toolCallId)
+            }
+            onDeny={(toolCallId) =>
+              onDenyToolCall?.(message.id, toolCallId)
+            }
+            onApproveAll={() => onApproveAllToolCalls?.(message.id)}
+            onDenyAll={() => onDenyAllToolCalls?.(message.id)}
+            t={t}
+          />
+        )}
 
         {/* 시간 + 복사 버튼 */}
         <div className="flex items-center gap-1 px-1">
